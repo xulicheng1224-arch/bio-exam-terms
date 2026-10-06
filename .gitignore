@@ -3,5 +3,13 @@ test-results/
 playwright-report/
 screenshots/
 
+# The Android build output and, more importantly, the signing key. Losing the
+# keystore means the app can never be updated in place again, so it is kept out
+# of version control deliberately - back it up separately.
+android/build/
+android/keystore/
+android/*.apk
+android/*.idsig
+
 # NOTE: docs/ is intentionally committed. It holds the built app that GitHub
 # Pages serves, which keeps deployment to a plain `git push` with no CI.
