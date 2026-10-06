@@ -26,8 +26,18 @@ function settingsWith(newPerDay: number, reviewPerDay: number, subject: Subject 
 describe('buildDailyPlan', () => {
   it('offers only as many new terms as the daily quota allows', () => {
     const plan = buildDailyPlan(TERMS, {}, {}, settingsWith(2, 60, 'all'), NOW);
-    expect(plan.newTerms.map((entry) => entry.id)).toEqual(['cell-1', 'cell-2']);
+    expect(plan.newTerms).toHaveLength(2);
     expect(plan.newQuotaLeft).toBe(2);
+  });
+
+  it('rotates subjects instead of working through one at a time', () => {
+    const plan = buildDailyPlan(TERMS, {}, {}, settingsWith(3, 60, 'all'), NOW);
+    expect(plan.newTerms.map((entry) => entry.subject)).toEqual(['cell', 'molecular', 'cell']);
+  });
+
+  it('keeps a single-subject scope in its natural order', () => {
+    const plan = buildDailyPlan(TERMS, {}, {}, settingsWith(3, 60, 'cell'), NOW);
+    expect(plan.newTerms.map((entry) => entry.id)).toEqual(['cell-1', 'cell-2', 'cell-3']);
   });
 
   it('subtracts what was already introduced today', () => {

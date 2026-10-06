@@ -16,6 +16,7 @@ import {
   daysUntil,
   dueTerms,
   examIntervalCapDays,
+  interleaveBySubject,
   isDue,
   isIntroduced,
   mistakeTerms,
@@ -174,5 +175,68 @@ describe('deck selection', () => {
       'mol-1': { box: MAX_BOX, dueAt: NOW, lapses: 9, reviews: 20 },
     };
     expect(mistakeTerms(terms, store, 'all').map((entry) => entry.id)).toEqual(['cell-1', 'cell-2']);
+  });
+});
+
+describe('interleaveBySubject', () => {
+  it('rotates through the subjects in turn', () => {
+    const grouped: readonly Term[] = [
+      term('cell-1', 'cell'),
+      term('cell-2', 'cell'),
+      term('mol-1', 'molecular'),
+      term('mol-2', 'molecular'),
+      term('bio-1', 'biochem'),
+      term('bio-2', 'biochem'),
+    ];
+    expect(interleaveBySubject(grouped).map((entry) => entry.id)).toEqual([
+      'cell-1',
+      'mol-1',
+      'bio-1',
+      'cell-2',
+      'mol-2',
+      'bio-2',
+    ]);
+  });
+
+  it('keeps going with the remaining subjects once a smaller one runs out', () => {
+    const grouped: readonly Term[] = [
+      term('cell-1', 'cell'),
+      term('cell-2', 'cell'),
+      term('cell-3', 'cell'),
+      term('bio-1', 'biochem'),
+    ];
+    expect(interleaveBySubject(grouped).map((entry) => entry.id)).toEqual([
+      'cell-1',
+      'bio-1',
+      'cell-2',
+      'cell-3',
+    ]);
+  });
+
+  it('leaves a single-subject list untouched', () => {
+    const onlyCell: readonly Term[] = [term('cell-1', 'cell'), term('cell-2', 'cell')];
+    expect(interleaveBySubject(onlyCell).map((entry) => entry.id)).toEqual(['cell-1', 'cell-2']);
+  });
+
+  it('keeps every term exactly once', () => {
+    const grouped: readonly Term[] = [
+      term('cell-1', 'cell'),
+      term('mol-1', 'molecular'),
+      term('bio-1', 'biochem'),
+      term('cell-2', 'cell'),
+    ];
+    const result = interleaveBySubject(grouped);
+    expect(result).toHaveLength(grouped.length);
+    expect(new Set(result.map((entry) => entry.id)).size).toBe(grouped.length);
+  });
+
+  it('does not mutate the list it was given', () => {
+    const grouped: readonly Term[] = [term('cell-1', 'cell'), term('mol-1', 'molecular')];
+    interleaveBySubject(grouped);
+    expect(grouped.map((entry) => entry.id)).toEqual(['cell-1', 'mol-1']);
+  });
+
+  it('handles an empty list', () => {
+    expect(interleaveBySubject([])).toEqual([]);
   });
 });

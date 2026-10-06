@@ -18,6 +18,7 @@ import {
   daysUntil,
   examIntervalCapDays,
   findCardState,
+  interleaveBySubject,
   isIntroduced,
 } from './srs';
 import {
@@ -183,7 +184,7 @@ function quizQueue(state: AppState, plan: DailyPlan): readonly Term[] {
   }
   const introduced = state.glossary.terms.filter((term) => isIntroduced(state.progress, term.id));
   if (introduced.length >= QUIZ_MIN_TERMS) {
-    return introduced.slice(0, QUIZ_FALLBACK_LIMIT);
+    return interleaveBySubject(introduced).slice(0, QUIZ_FALLBACK_LIMIT);
   }
   return plan.newTerms.slice(0, QUIZ_FALLBACK_LIMIT);
 }

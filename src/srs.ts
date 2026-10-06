@@ -177,6 +177,49 @@ function matchesSubject(term: Term, subject: Term['subject'] | 'all'): boolean {
   return subject === 'all' || term.subject === subject;
 }
 
+/**
+ * Reorders terms so the subjects rotate: cell, molecular, biochem, cell, ...
+ *
+ * The glossary is stored grouped by subject, so taking terms in file order
+ * would spend the first four days on cell biology alone and leave biochemistry
+ * untouched until the very end - bad both for retention and for anyone whose
+ * exam arrives early. A single-subject list passes through unchanged.
+ */
+export function interleaveBySubject(terms: readonly Term[]): readonly Term[] {
+  const buckets = new Map<Term['subject'], Term[]>();
+  for (const term of terms) {
+    const bucket = buckets.get(term.subject);
+    if (bucket === undefined) {
+      buckets.set(term.subject, [term]);
+    } else {
+      bucket.push(term);
+    }
+  }
+
+  const queues = [...buckets.values()];
+  const cursors = queues.map((): number => 0);
+  const interleaved: Term[] = [];
+  let placedAny = true;
+  while (placedAny) {
+    placedAny = false;
+    for (let index = 0; index < queues.length; index += 1) {
+      const queue = queues[index];
+      const cursor = cursors[index];
+      if (queue === undefined || cursor === undefined) {
+        continue;
+      }
+      const next = queue[cursor];
+      if (next === undefined) {
+        continue;
+      }
+      interleaved.push(next);
+      cursors[index] = cursor + 1;
+      placedAny = true;
+    }
+  }
+  return interleaved;
+}
+
 /** Terms never shown yet, in glossary order. */
 export function unintroducedTerms(
   terms: readonly Term[],

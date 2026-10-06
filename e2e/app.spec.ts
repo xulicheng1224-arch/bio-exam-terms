@@ -56,9 +56,10 @@ test('learning shows the whole answer and counts against the daily quota', async
   await expect(page.getByTestId('card-cn')).toHaveText('细胞学说');
   await expect(page.getByTestId('card-def')).toContainText('生物体结构和功能的基本单位');
 
-  // Marking a term learned advances to the next card and counts it.
+  // Marking a term learned advances to the next card and counts it. The next
+  // card is the first term of the *next* subject, because the queue rotates.
   await page.getByTestId('learn-next').click();
-  await expect(page.getByTestId('card-prompt')).toHaveText('Fluid mosaic model');
+  await expect(page.getByTestId('card-prompt')).toHaveText('Central Dogma');
   await expect(page.getByTestId('quota-new')).toHaveCount(0);
 
   await page.getByTestId('learn-next').click();
@@ -83,7 +84,7 @@ test('a term learned today is due for review straight away', async ({ page }) =>
   await expect(page.getByTestId('card-cn')).toHaveText('细胞学说');
   await page.getByTestId('grade-good').click();
 
-  await expect(page.getByTestId('card-prompt')).toHaveText('Fluid mosaic model');
+  await expect(page.getByTestId('card-prompt')).toHaveText('Central Dogma');
   await page.getByTestId('exit-session').click();
   await expect(page.getByTestId('quota-review')).toHaveText('1 / 60');
 
@@ -116,7 +117,7 @@ test('quiz mode grades a correct pick as known', async ({ page }) => {
   await expect(page.getByTestId('quiz-verdict')).toContainText('选对了');
 
   await page.getByTestId('quiz-next').click();
-  await expect(page.getByTestId('card-prompt')).toHaveText('Fluid mosaic model');
+  await expect(page.getByTestId('card-prompt')).toHaveText('Central Dogma');
 });
 
 test('quiz mode marks a wrong pick and returns the term to the queue', async ({ page }) => {
@@ -133,6 +134,21 @@ test('quiz mode marks a wrong pick and returns the term to the queue', async ({ 
   const progress = (await stored(page, PROGRESS_KEY)) as Record<string, { lapses: number; box: number }>;
   expect(progress['cell-0001']?.lapses).toBe(1);
   expect(progress['cell-0001']?.box).toBe(0);
+});
+
+test('the all-subjects queue rotates through every subject', async ({ page }) => {
+  await page.goto('/');
+  await page.getByTestId('start-learn').click();
+
+  const subjects = new Set<string>();
+  for (let index = 0; index < 12; index += 1) {
+    const label = await page.locator('.card__subject').textContent();
+    subjects.add((label ?? '').trim());
+    await page.getByTestId('learn-next').click();
+  }
+
+  // Studying "全部" must not spend the first days on a single subject.
+  expect(subjects.size).toBe(3);
 });
 
 test('the subject filter scopes the plan', async ({ page }) => {
@@ -262,7 +278,11 @@ test('statistics reflect what has been studied', async ({ page }) => {
   await page.getByTestId('tab-stats').click();
 
   await expect(page.getByTestId('stat-overall')).toContainText('已学 3 / 204');
-  await expect(page.getByTestId('stat-cell')).toContainText('未学 71');
+  // Three terms learned from "全部" means one from each subject, because the
+  // queue rotates rather than working through cell biology first.
+  await expect(page.getByTestId('stat-cell')).toContainText('未学 73');
+  await expect(page.getByTestId('stat-molecular')).toContainText('未学 75');
+  await expect(page.getByTestId('stat-biochem')).toContainText('未学 53');
 });
 
 test('progress survives a reload', async ({ page }) => {

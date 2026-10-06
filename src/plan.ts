@@ -7,7 +7,16 @@
  * silently growing.
  */
 
-import { DAY_MS, dayKey, dueTerms, findCardState, mistakeTerms, startOfDay, unintroducedTerms } from './srs';
+import {
+  DAY_MS,
+  dayKey,
+  dueTerms,
+  findCardState,
+  interleaveBySubject,
+  mistakeTerms,
+  startOfDay,
+  unintroducedTerms,
+} from './srs';
 import type { DailyLog, DayCounters, ProgressStore, Settings, Subject, Term } from './types';
 
 const EMPTY_COUNTERS: DayCounters = { introduced: 0, reviewed: 0 };
@@ -58,7 +67,9 @@ export function buildDailyPlan(
   const counters = countersFor(log, now);
 
   const newQuotaLeft = Math.max(0, settings.newPerDay - counters.introduced);
-  const newTerms = unintroducedTerms(terms, progress, settings.subject).slice(0, newQuotaLeft);
+  const newTerms = interleaveBySubject(
+    unintroducedTerms(terms, progress, settings.subject),
+  ).slice(0, newQuotaLeft);
 
   const due = dueTerms(terms, progress, now, settings.subject);
   const reviewQuotaLeft = Math.max(0, settings.reviewPerDay - counters.reviewed);
