@@ -1,153 +1,79 @@
 /**
- * Application shell.
+ * Application shell: owns the state, wires the actions and renders whichever
+ * screen is active.
  *
- * State transitions are pure functions over an immutable AppState. The only
- * side effects are DOM writes in `render`, plus the storage and speech modules.
+ * State transitions are pure. The side effects live here in DOM writes, plus
+ * the storage and speech modules.
  */
 
 import './style.css';
-import { answerFaceFor, promptFor } from './card';
-import { ALL_TERMS } from './data';
+import { BUNDLED_TERMS } from './data';
+import { assembleGlossary } from './glossary';
+import { parseImport } from './import';
+import { buildDailyPlan, withIntroduced, withReviewed } from './plan';
 import { registerServiceWorker } from './pwa';
-import { applyGrade, buildQueue, readCardState, summariseDue } from './srs';
-import { isSpeechAvailable, speakEnglish } from './speech';
+import {
+  applyGrade,
+  createCardState,
+  daysUntil,
+  examIntervalCapDays,
+  findCardState,
+  isIntroduced,
+} from './srs';
 import {
   clearAllSavedData,
-  clearProgress,
+  clearProgress as clearSavedProgress,
+  loadCustomTerms,
+  loadDailyLog,
   loadProgress,
   loadSettings,
+  saveCustomTerms,
+  saveDailyLog,
   saveProgress,
   saveSettings,
 } from './storage';
-import type { Settings } from './storage';
-import type { Grade, ProgressStore, RevealMode, Subject, Term } from './types';
+import type { AppActions, AppState, Route, Session, SessionKind } from './app';
+import type { DailyPlan } from './plan';
+import type { Grade, Settings, Subject, Term } from './types';
+import { button, element, withTestId } from './ui/dom';
+import { libraryScreen, settingsScreen, statsScreen, todayScreen } from './ui/screens';
+import { renderSession } from './ui/session';
 
-const SESSION_LIMIT = 500;
+const QUIZ_FALLBACK_LIMIT = 30;
+const QUIZ_MIN_TERMS = 4;
+const LIST_RENDER_LIMIT = 150;
+const SEED_STRIDE = 7919;
 
-const SUBJECT_LABELS: Readonly<Record<Subject | 'all', string>> = {
-  all: '全部',
-  cell: '细胞生物学',
-  molecular: '分子生物学',
-  biochem: '生物化学',
+const TAB_ROUTES: readonly Route[] = ['home', 'review', 'library', 'stats'];
+const TAB_LABELS: Readonly<Record<string, string>> = {
+  home: '今日',
+  review: '复习',
+  library: '词库',
+  stats: '统计',
 };
 
-const REVEAL_LABELS: Readonly<Record<RevealMode, string>> = {
-  name: '只考中文名',
-  definition: '只考释义',
-  both: '名字＋释义',
-};
-
-const GRADES: readonly Grade[] = ['again', 'hard', 'good'];
-
-const GRADE_LABELS: Readonly<Record<Grade, string>> = {
-  again: '不认识',
-  hard: '模糊',
-  good: '认识',
-};
-
-const SUBJECT_SCOPES: readonly (Subject | 'all')[] = ['all', 'cell', 'molecular', 'biochem'];
-const REVEAL_MODES: readonly RevealMode[] = ['name', 'definition', 'both'];
-
-interface AppState {
-  readonly settings: Settings;
-  readonly progress: ProgressStore;
-  readonly queue: readonly Term[];
-  readonly cursor: number;
-  readonly revealed: boolean;
-}
-
-function buildQueueFor(settings: Settings, progress: ProgressStore, now: number): readonly Term[] {
-  return buildQueue(ALL_TERMS, progress, now, {
-    subject: settings.subject,
-    dueOnly: false,
-    limit: SESSION_LIMIT,
-  });
-}
-
-/** Starts a session: new cards first, then reviews in the order they came due. */
-function initialState(settings: Settings, progress: ProgressStore, now: number): AppState {
-  return {
-    settings,
-    progress,
-    queue: buildQueueFor(settings, progress, now),
-    cursor: 0,
-    revealed: false,
-  };
-}
-
-/** Records a grade and moves to the next card, wrapping into a fresh session. */
-function withGrade(state: AppState, grade: Grade, now: number): AppState {
-  const term = state.queue[state.cursor];
-  if (term === undefined) {
-    throw new Error(
-      `cannot grade: no card at cursor ${state.cursor} in a queue of ${state.queue.length}`,
-    );
-  }
-  const current = readCardState(state.progress, term.id, now);
-  const progress: ProgressStore = { ...state.progress, [term.id]: applyGrade(current, grade, now) };
-  const nextCursor = state.cursor + 1;
-  if (nextCursor < state.queue.length) {
-    return { ...state, progress, cursor: nextCursor, revealed: false };
-  }
-  return {
-    ...state,
-    progress,
-    queue: buildQueueFor(state.settings, progress, now),
-    cursor: 0,
-    revealed: false,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// DOM helpers
-// ---------------------------------------------------------------------------
-
-function element(tag: string, className: string, text: string): HTMLElement {
-  const node = document.createElement(tag);
-  node.className = className;
-  node.textContent = text;
-  return node;
-}
-
-function withTestId(node: HTMLElement, id: string): HTMLElement {
-  node.dataset['testid'] = id;
-  return node;
-}
-
-function chip(label: string, active: boolean, testIdValue: string, onPick: () => void): HTMLElement {
-  const node = withTestId(element('button', active ? 'chip chip--on' : 'chip', label), testIdValue);
-  node.setAttribute('type', 'button');
-  node.setAttribute('aria-pressed', active ? 'true' : 'false');
-  node.addEventListener('click', onPick);
-  return node;
+function isSessionRoute(route: Route): boolean {
+  return route === 'learn' || route === 'review' || route === 'quiz' || route === 'mistakes';
 }
 
 // ---------------------------------------------------------------------------
 // Mount points
 // ---------------------------------------------------------------------------
 
-const root = document.getElementById('app');
-if (root === null) {
+const rootElement = document.getElementById('app');
+if (rootElement === null) {
   throw new Error('#app root element is missing from index.html');
 }
+const root: HTMLElement = rootElement;
 
-const errorBanner = element('div', 'banner banner--error', '');
+const errorBanner = withTestId(element('div', 'banner banner--error', ''), 'error-banner');
 errorBanner.hidden = true;
-errorBanner.dataset['testid'] = 'error-banner';
+const screenMount = element('main', 'screen', '');
+const tabBar = element('nav', 'tabbar', '');
 
-const header = element('header', 'header', '');
-const cardRegion = element('main', 'card-region', '');
-const controls = element('div', 'controls', '');
-const settingsRegion = element('section', 'settings', '');
-
-root.append(errorBanner, header, cardRegion, controls, settingsRegion);
+root.append(errorBanner, screenMount, tabBar);
 
 let stateRef: AppState | null = null;
-
-function showError(message: string): void {
-  errorBanner.textContent = message;
-  errorBanner.hidden = false;
-}
 
 function requireState(): AppState {
   if (stateRef === null) {
@@ -156,193 +82,356 @@ function requireState(): AppState {
   return stateRef;
 }
 
-// ---------------------------------------------------------------------------
-// Section renderers
-// ---------------------------------------------------------------------------
-
-function renderHeader(state: AppState, now: number): void {
-  header.replaceChildren();
-
-  const due = summariseDue(ALL_TERMS, state.progress, now);
-  header.append(element('h1', 'header__title', '考研名词解释'));
-  header.append(
-    element(
-      'div',
-      'header__counters',
-      `本轮 ${state.cursor + 1}／${state.queue.length}　待复习 ${due.total}　词库 ${ALL_TERMS.length}`,
-    ),
-  );
-
-  const filters = element('div', 'chips', '');
-  for (const scope of SUBJECT_SCOPES) {
-    filters.append(
-      chip(SUBJECT_LABELS[scope], state.settings.subject === scope, `filter-${scope}`, () => {
-        applySettings({ ...requireState().settings, subject: scope });
-      }),
-    );
-  }
-  header.append(filters);
+function showError(message: string): void {
+  errorBanner.textContent = message;
+  errorBanner.hidden = false;
 }
 
-function renderCard(state: AppState): void {
-  cardRegion.replaceChildren();
-
-  const term = state.queue[state.cursor];
-  if (term === undefined) {
-    cardRegion.append(element('p', 'empty', '当前筛选下没有词条。'));
-    return;
+/** Surfaces a failure in the banner instead of leaving the screen unresponsive. */
+function run(action: () => void): void {
+  try {
+    action();
+  } catch (error: unknown) {
+    showError(error instanceof Error ? error.message : String(error));
   }
-
-  const card = withTestId(element('article', 'card', ''), 'card');
-  if (state.revealed) {
-    card.classList.add('card--revealed');
-  }
-
-  const face = answerFaceFor(term, state.settings.revealMode);
-
-  card.append(element('span', 'card__subject', SUBJECT_LABELS[term.subject]));
-  card.append(withTestId(element('h2', 'card__prompt', promptFor(term)), 'card-prompt'));
-
-  if (isSpeechAvailable()) {
-    const speak = withTestId(element('button', 'speak', '🔊 发音'), 'speak');
-    speak.setAttribute('type', 'button');
-    speak.addEventListener('click', (event: MouseEvent): void => {
-      event.stopPropagation();
-      speakEnglish(term.en, showError);
-    });
-    card.append(speak);
-  }
-
-  if (state.revealed) {
-    if (face.name.length > 0) {
-      card.append(withTestId(element('p', 'card__cn', face.name), 'card-cn'));
-    }
-    if (face.definition.length > 0) {
-      card.append(withTestId(element('p', 'card__def', face.definition), 'card-def'));
-    }
-    card.append(element('p', 'card__meta', `考点主题：${term.topic}`));
-    if (term.note.length > 0) {
-      card.append(element('p', 'card__note', `易混提示：${term.note}`));
-    }
-  } else {
-    card.append(element('p', 'card__hint', '先回想中文名和释义，再点「显示答案」'));
-    card.addEventListener('click', () => {
-      render({ ...requireState(), revealed: true });
-    });
-  }
-
-  cardRegion.append(card);
-}
-
-function renderControls(state: AppState): void {
-  controls.replaceChildren();
-
-  if (!state.revealed) {
-    const reveal = withTestId(element('button', 'primary', '显示答案'), 'reveal');
-    reveal.setAttribute('type', 'button');
-    reveal.addEventListener('click', () => render({ ...requireState(), revealed: true }));
-    controls.append(reveal);
-    return;
-  }
-
-  for (const grade of GRADES) {
-    const button = withTestId(
-      element('button', `grade grade--${grade}`, GRADE_LABELS[grade]),
-      `grade-${grade}`,
-    );
-    button.setAttribute('type', 'button');
-    button.addEventListener('click', () => {
-      const next = withGrade(requireState(), grade, Date.now());
-      saveProgress(next.progress);
-      render(next);
-    });
-    controls.append(button);
-  }
-}
-
-function renderSettings(state: AppState): void {
-  settingsRegion.replaceChildren();
-  settingsRegion.append(element('p', 'settings__label', '翻面显示'));
-
-  const chips = element('div', 'chips', '');
-  for (const mode of REVEAL_MODES) {
-    chips.append(
-      chip(REVEAL_LABELS[mode], state.settings.revealMode === mode, `reveal-${mode}`, () => {
-        applySettings({ ...requireState().settings, revealMode: mode });
-      }),
-    );
-  }
-  settingsRegion.append(chips);
-
-  settingsRegion.append(
-    element('p', 'settings__label', `已记录 ${Object.keys(state.progress).length} 个词条的复习进度`),
-  );
-
-  const reset = withTestId(element('button', 'danger', '清空复习进度'), 'reset-progress');
-  reset.setAttribute('type', 'button');
-  reset.addEventListener('click', () => {
-    if (!window.confirm('确定清空全部复习进度吗？此操作不可撤销。')) {
-      return;
-    }
-    clearProgress();
-    render(initialState(requireState().settings, {}, Date.now()));
-  });
-  settingsRegion.append(reset);
 }
 
 // ---------------------------------------------------------------------------
-// Single render entry point
+// Focus preservation
 // ---------------------------------------------------------------------------
 
-function render(next: AppState): void {
-  stateRef = next;
-  const now = Date.now();
-  renderHeader(next, now);
-  renderCard(next);
-  renderControls(next);
-  renderSettings(next);
-}
-
-/** Persists a settings change and starts a fresh session under the new scope. */
-function applySettings(settings: Settings): void {
-  saveSettings(settings);
-  render(initialState(settings, requireState().progress, Date.now()));
+interface FocusSnapshot {
+  readonly testId: string;
+  readonly selectionStart: number | null;
 }
 
 /**
- * Shows the reason startup failed plus a way out.
+ * Re-rendering replaces the whole tree, which would otherwise drop the caret
+ * out of the search box on every keystroke.
+ */
+function captureFocus(): FocusSnapshot | null {
+  const active = document.activeElement;
+  if (!(active instanceof HTMLElement)) {
+    return null;
+  }
+  const testId = active.dataset['testid'];
+  if (testId === undefined) {
+    return null;
+  }
+  const selectionStart =
+    active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement
+      ? active.selectionStart
+      : null;
+  return { testId, selectionStart };
+}
+
+function restoreFocus(snapshot: FocusSnapshot | null): void {
+  if (snapshot === null) {
+    return;
+  }
+  const restored = root.querySelector<HTMLElement>(`[data-testid="${snapshot.testId}"]`);
+  if (restored === null) {
+    return;
+  }
+  restored.focus();
+  if (
+    snapshot.selectionStart !== null &&
+    (restored instanceof HTMLInputElement || restored instanceof HTMLTextAreaElement)
+  ) {
+    restored.setSelectionRange(snapshot.selectionStart, snapshot.selectionStart);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Session helpers
+// ---------------------------------------------------------------------------
+
+function advanceSession(state: AppState, session: Session): AppState {
+  const nextCursor = session.cursor + 1;
+  if (nextCursor < session.queue.length) {
+    return {
+      ...state,
+      session: {
+        ...session,
+        cursor: nextCursor,
+        revealed: false,
+        chosenIndex: null,
+        seed: session.seed + SEED_STRIDE,
+      },
+    };
+  }
+  return { ...state, session: null, route: 'home' };
+}
+
+function quizQueue(state: AppState, plan: DailyPlan): readonly Term[] {
+  if (plan.reviewTerms.length >= QUIZ_MIN_TERMS) {
+    return plan.reviewTerms;
+  }
+  const introduced = state.glossary.terms.filter((term) => isIntroduced(state.progress, term.id));
+  if (introduced.length >= QUIZ_MIN_TERMS) {
+    return introduced.slice(0, QUIZ_FALLBACK_LIMIT);
+  }
+  return plan.newTerms.slice(0, QUIZ_FALLBACK_LIMIT);
+}
+
+function buildSessionQueue(state: AppState, plan: DailyPlan, kind: SessionKind): readonly Term[] {
+  if (kind === 'learn') {
+    return plan.newTerms;
+  }
+  if (kind === 'review') {
+    return plan.reviewTerms;
+  }
+  if (kind === 'mistakes') {
+    return plan.mistakes;
+  }
+  return quizQueue(state, plan);
+}
+
+// ---------------------------------------------------------------------------
+// Actions
+// ---------------------------------------------------------------------------
+
+const actions: AppActions = {
+  navigate: (route: Route): void =>
+    run(() => {
+      render({ ...requireState(), route, session: null });
+    }),
+
+  startSession: (kind: SessionKind): void =>
+    run(() => {
+      const state = requireState();
+      const now = Date.now();
+      const plan = buildDailyPlan(
+        state.glossary.terms,
+        state.progress,
+        state.log,
+        state.settings,
+        now,
+      );
+      render({
+        ...state,
+        route: kind,
+        session: {
+          kind,
+          queue: buildSessionQueue(state, plan, kind),
+          cursor: 0,
+          revealed: false,
+          chosenIndex: null,
+          seed: now % 1_000_000,
+        },
+      });
+    }),
+
+  reveal: (): void =>
+    run(() => {
+      const state = requireState();
+      if (state.session === null || state.session.revealed) {
+        return;
+      }
+      render({ ...state, session: { ...state.session, revealed: true } });
+    }),
+
+  choose: (index: number): void =>
+    run(() => {
+      const state = requireState();
+      const session = state.session;
+      if (session === null || session.chosenIndex !== null) {
+        return;
+      }
+      render({ ...state, session: { ...session, chosenIndex: index } });
+    }),
+
+  grade: (grade: Grade): void =>
+    run(() => {
+      const state = requireState();
+      const session = state.session;
+      if (session === null) {
+        return;
+      }
+      const term = session.queue[session.cursor];
+      if (term === undefined) {
+        return;
+      }
+      const now = Date.now();
+      const cap = examIntervalCapDays(state.settings.examDate, now);
+      const current = findCardState(state.progress, term.id) ?? createCardState(now);
+      const progress = { ...state.progress, [term.id]: applyGrade(current, grade, now, cap) };
+      const log = withReviewed(state.log, now);
+      saveProgress(progress);
+      saveDailyLog(log);
+      render(advanceSession({ ...state, progress, log }, session));
+    }),
+
+  finishLearnCard: (): void =>
+    run(() => {
+      const state = requireState();
+      const session = state.session;
+      if (session === null) {
+        return;
+      }
+      const term = session.queue[session.cursor];
+      if (term === undefined) {
+        return;
+      }
+      const now = Date.now();
+      const progress = { ...state.progress, [term.id]: createCardState(now) };
+      const log = withIntroduced(state.log, now);
+      saveProgress(progress);
+      saveDailyLog(log);
+      render(advanceSession({ ...state, progress, log }, session));
+    }),
+
+  updateSettings: (settings: Settings): void =>
+    run(() => {
+      // Reject an unusable date rather than persisting it and failing later.
+      if (settings.examDate.length > 0) {
+        daysUntil(settings.examDate, Date.now());
+      }
+      saveSettings(settings);
+      const state = requireState();
+      const subjectChanged = state.settings.subject !== settings.subject;
+      render({
+        ...state,
+        settings,
+        session: subjectChanged ? null : state.session,
+        route: subjectChanged ? 'home' : state.route,
+      });
+    }),
+
+  importTerms: (text: string, subject: Subject): void =>
+    run(() => {
+      const state = requireState();
+      const result = parseImport(text, subject, state.glossary.terms, `custom-${subject}`);
+      const customTerms = [...state.customTerms, ...result.terms];
+      if (result.terms.length > 0) {
+        saveCustomTerms(customTerms);
+      }
+      render({
+        ...state,
+        customTerms,
+        glossary: assembleGlossary(BUNDLED_TERMS, customTerms),
+        lastImport: result,
+      });
+    }),
+
+  clearProgress: (): void =>
+    run(() => {
+      clearSavedProgress();
+      const state = requireState();
+      render({ ...state, progress: {}, log: {}, session: null, route: 'home' });
+    }),
+
+  clearCustomTerms: (): void =>
+    run(() => {
+      saveCustomTerms([]);
+      const state = requireState();
+      render({
+        ...state,
+        customTerms: [],
+        glossary: assembleGlossary(BUNDLED_TERMS, []),
+        lastImport: null,
+      });
+    }),
+
+  setLibraryQuery: (query: string): void =>
+    run(() => {
+      render({ ...requireState(), libraryQuery: query });
+    }),
+
+  setLibrarySubject: (subject: Subject | 'all'): void =>
+    run(() => {
+      render({ ...requireState(), librarySubject: subject });
+    }),
+};
+
+// ---------------------------------------------------------------------------
+// Rendering
+// ---------------------------------------------------------------------------
+
+function renderTabs(state: AppState): void {
+  const nodes = TAB_ROUTES.map((route) => {
+    const active = state.route === route || (route === 'home' && isSessionRoute(state.route));
+    const label = TAB_LABELS[route] ?? route;
+    return button(label, active ? 'tab tab--on' : 'tab', `tab-${route}`, () => {
+      if (route === 'review') {
+        actions.startSession('review');
+      } else {
+        actions.navigate(route);
+      }
+    });
+  });
+  tabBar.replaceChildren(...nodes);
+}
+
+function activeScreen(state: AppState, now: number): readonly Node[] {
+  if (isSessionRoute(state.route)) {
+    return renderSession(state, actions, showError);
+  }
+  if (state.route === 'library') {
+    return libraryScreen(state, actions, LIST_RENDER_LIMIT);
+  }
+  if (state.route === 'stats') {
+    return statsScreen(state, actions);
+  }
+  if (state.route === 'settings') {
+    return settingsScreen(state, actions);
+  }
+  const plan = buildDailyPlan(state.glossary.terms, state.progress, state.log, state.settings, now);
+  return todayScreen(state, plan, actions);
+}
+
+function render(next: AppState): void {
+  const focus = captureFocus();
+  stateRef = next;
+  screenMount.replaceChildren(...activeScreen(next, Date.now()));
+  renderTabs(next);
+  restoreFocus(focus);
+}
+
+/**
+ * Shows why startup failed plus a way out.
  *
  * Saved data that cannot be parsed would otherwise leave a permanently blank
  * app with no way to recover on a phone, where there are no developer tools.
- * Clearing is offered explicitly rather than performed silently.
  */
 function renderRecovery(message: string): void {
   showError(`启动失败：${message}`);
-  header.replaceChildren(element('h1', 'header__title', '考研名词解释'));
-  cardRegion.replaceChildren(
+  const panel = element('div', 'screen__done', '');
+  panel.append(
+    element('h1', 'screen__title', '考研名词解释'),
     element(
       'p',
       'empty',
-      '保存在本机的数据无法读取。清空后就能照常使用，词库本身不受影响，只是复习进度需要重来。',
+      '保存在本机的数据无法读取。清空后就能照常使用，内置词库不受影响，只是复习进度和自定义词条需要重来。',
     ),
+    button('清空本机数据并重新开始', 'primary', 'recover', () => {
+      clearAllSavedData();
+      window.location.reload();
+    }),
   );
-  controls.replaceChildren();
-  settingsRegion.replaceChildren();
-
-  const recover = withTestId(element('button', 'primary', '清空本机数据并重新开始'), 'recover');
-  recover.setAttribute('type', 'button');
-  recover.addEventListener('click', () => {
-    clearAllSavedData();
-    window.location.reload();
-  });
-  settingsRegion.append(recover);
+  screenMount.replaceChildren(panel);
+  tabBar.replaceChildren();
 }
+
+// ---------------------------------------------------------------------------
+// Bootstrap
+// ---------------------------------------------------------------------------
 
 function bootstrap(): void {
   try {
-    const settings = loadSettings();
-    const progress = loadProgress();
-    render(initialState(settings, progress, Date.now()));
+    const customTerms = loadCustomTerms();
+    render({
+      settings: loadSettings(),
+      progress: loadProgress(),
+      log: loadDailyLog(),
+      customTerms,
+      glossary: assembleGlossary(BUNDLED_TERMS, customTerms),
+      route: 'home',
+      session: null,
+      libraryQuery: '',
+      librarySubject: 'all',
+      lastImport: null,
+    });
   } catch (error: unknown) {
     renderRecovery(error instanceof Error ? error.message : String(error));
   }

@@ -43,5 +43,32 @@ export interface CardState {
   readonly reviews: number;
 }
 
-/** Per-term scheduling state keyed by term id. */
+/**
+ * Per-term scheduling state keyed by term id.
+ *
+ * A term is absent until the learner has been shown it in the "learn new words"
+ * step. Absence is therefore the definition of "not yet introduced", which is
+ * why there is no separate flag for it.
+ */
 export type ProgressStore = Readonly<Record<string, CardState>>;
+
+/** Work completed on one local day. */
+export interface DayCounters {
+  readonly introduced: number;
+  readonly reviewed: number;
+}
+
+/** Completed work per local date, keyed "YYYY-MM-DD". */
+export type DailyLog = Readonly<Record<string, DayCounters>>;
+
+/** Study preferences, persisted between sessions. */
+export interface Settings {
+  readonly revealMode: RevealMode;
+  readonly subject: Subject | 'all';
+  /** How many unseen terms to introduce per day. */
+  readonly newPerDay: number;
+  /** Ceiling on due terms shown per day, so a backlog cannot pile up. */
+  readonly reviewPerDay: number;
+  /** Exam date as "YYYY-MM-DD", or "" when not set. */
+  readonly examDate: string;
+}
