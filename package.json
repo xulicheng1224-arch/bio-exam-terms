@@ -1,0 +1,23 @@
+{
+  "name": "bio-exam-terms",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Offline English-Chinese terminology trainer for biology postgraduate entrance exams",
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "e2e:serve": "npm run build && vite preview --port 4173 --strictPort --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "typescript": "7.0.2",
+    "vite": "8.3.3",
+    "vite-plugin-singlefile": "2.3.3",
+    "vitest": "5.0.3"
+  }
+}
