@@ -81,6 +81,15 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
+/*
+ * Flex children shrink by default, which squashed the long glossary list down
+ * to the height of the screen and clipped it instead of letting .screen scroll.
+ * Keeping every child at its natural height is what makes the overflow happen.
+ */
+.screen > * {
+  flex-shrink: 0;
+}
+
 .screen__header {
   display: flex;
   align-items: center;
@@ -94,7 +103,8 @@ body {
   font-weight: 700;
 }
 
-.screen__done {
+.screen__done,
+.session__done {
   display: flex;
   flex-direction: column;
   gap: 16px;

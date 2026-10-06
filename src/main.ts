@@ -56,6 +56,20 @@ function isSessionRoute(route: Route): boolean {
   return route === 'learn' || route === 'review' || route === 'quiz' || route === 'mistakes';
 }
 
+/**
+ * Which tab a route belongs under.
+ *
+ * Sessions started from the today screen keep "今日" lit, but a review session
+ * IS the review tab, so it must not light both - which is what comparing the
+ * route directly used to do.
+ */
+function owningTab(route: Route): Route {
+  if (route === 'settings' || route === 'learn' || route === 'quiz' || route === 'mistakes') {
+    return 'home';
+  }
+  return route;
+}
+
 // ---------------------------------------------------------------------------
 // Mount points
 // ---------------------------------------------------------------------------
@@ -350,7 +364,7 @@ const actions: AppActions = {
 
 function renderTabs(state: AppState): void {
   const nodes = TAB_ROUTES.map((route) => {
-    const active = state.route === route || (route === 'home' && isSessionRoute(state.route));
+    const active = owningTab(state.route) === route;
     const label = TAB_LABELS[route] ?? route;
     return button(label, active ? 'tab tab--on' : 'tab', `tab-${route}`, () => {
       if (route === 'review') {

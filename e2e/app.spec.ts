@@ -145,6 +145,47 @@ test('the subject filter scopes the plan', async ({ page }) => {
   await expect(page.getByTestId('start-review')).toContainText('今天没有到期的词');
 });
 
+test('a long screen scrolls instead of squashing its content', async ({ page }) => {
+  await page.goto('/');
+  await page.getByTestId('tab-library').click();
+
+  // The list must keep its natural height rather than being compressed to fit.
+  const listHeight = await page.evaluate(
+    () => document.querySelector('.term-list')?.clientHeight ?? 0,
+  );
+  expect(listHeight).toBeGreaterThan(2_000);
+
+  const metrics = await page.evaluate((): { client: number; scroll: number } => {
+    const screen = document.querySelector('.screen');
+    return screen === null
+      ? { client: 0, scroll: 0 }
+      : { client: screen.clientHeight, scroll: screen.scrollHeight };
+  });
+  expect(metrics.scroll).toBeGreaterThan(metrics.client);
+
+  await page.evaluate(() => {
+    const screen = document.querySelector('.screen');
+    if (screen !== null) {
+      screen.scrollTop = 600;
+    }
+  });
+  const scrolled = await page.evaluate(() => document.querySelector('.screen')?.scrollTop ?? 0);
+  expect(scrolled).toBeGreaterThan(0);
+});
+
+test('only one tab is highlighted at a time', async ({ page }) => {
+  await page.goto('/');
+
+  await page.getByTestId('tab-review').click();
+  await expect(page.getByTestId('tab-review')).toHaveClass(/tab--on/);
+  await expect(page.getByTestId('tab-home')).not.toHaveClass(/tab--on/);
+
+  await page.getByTestId('tab-home').click();
+  await page.getByTestId('start-learn').click();
+  await expect(page.getByTestId('tab-home')).toHaveClass(/tab--on/);
+  await expect(page.getByTestId('tab-review')).not.toHaveClass(/tab--on/);
+});
+
 test('the library searches the whole glossary', async ({ page }) => {
   await page.goto('/');
   await page.getByTestId('tab-library').click();
