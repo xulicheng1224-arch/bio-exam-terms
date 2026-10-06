@@ -469,4 +469,304 @@ export const MOLECULAR_TERMS: readonly Term[] = [
     topic: '翻译',
     note: '2023年真题卷面写作 "Synonyms"，规范写法为 synonymous codons，答题时建议写全。',
   },
+  {
+    id: 'mol-0047',
+    subject: 'molecular',
+    en: 'Telomere',
+    cn: '端粒',
+    defCn:
+      '真核生物染色体末端由高度重复的短序列（人类为TTAGGG）与特异性蛋白结合形成的特殊结构，可保护染色体末端不被降解和融合，并随细胞分裂逐渐缩短。',
+    topic: '染色体与DNA',
+    note: '2022年简答题考过"端粒和端粒酶的功能，端粒最初在什么生物中发现"。',
+  },
+  {
+    id: 'mol-0048',
+    subject: 'molecular',
+    en: 'Reverse transcriptase',
+    cn: '反转录酶',
+    defCn:
+      '以RNA为模板、以四种脱氧核糖核苷三磷酸为底物合成DNA的酶，同时具有RNA酶H活性和DNA聚合酶活性，是反转录病毒和端粒酶发挥作用的必需酶。',
+    topic: '染色体与DNA',
+    note: '中心法则的补充内容之一（RNA→DNA），中考常与端粒酶联系考察。',
+  },
+  {
+    id: 'mol-0049',
+    subject: 'molecular',
+    en: 'Ribozyme',
+    cn: '核酶',
+    defCn:
+      '具有催化活性的RNA分子，能够催化自身或异体RNA的切割、连接等反应，如Ⅰ型和Ⅱ型内含子以及核糖体大亚基中的rRNA，是RNA具有生物学功能多样性的重要证据。',
+    topic: '基因表达调控',
+    note: '',
+  },
+  {
+    id: 'mol-0050',
+    subject: 'molecular',
+    en: 'Spliceosome',
+    cn: '剪接体',
+    defCn:
+      '由snRNA（U1、U2、U4、U5、U6）和多种蛋白质组装成的核糖核蛋白复合体，通过识别5\'和3\'剪接位点及分支点，催化前体mRNA中内含子的切除和外显子的连接。',
+    topic: '基因表达调控',
+    note: '2023年简答题涉及Ⅰ型与Ⅱ型内含子的自剪接，注意与剪接体介导的剪接相区分。',
+  },
+  {
+    id: 'mol-0051',
+    subject: 'molecular',
+    en: 'Riboswitch',
+    cn: '核糖开关',
+    defCn:
+      '位于mRNA非翻译区、能够直接结合特定小分子代谢物并因此改变自身构象，从而调控基因转录终止或翻译起始的RNA元件，是细菌中重要的基因表达调控方式。',
+    topic: '基因表达调控',
+    note: '2023年简答题专门考过其结构和作用机制。',
+  },
+  {
+    id: 'mol-0052',
+    subject: 'molecular',
+    en: 'Genetic code',
+    cn: '遗传密码',
+    defCn:
+      'mRNA分子中由三个相邻核苷酸组成一个密码子、对应一种氨基酸的编码规则，具有连续性、简并性、通用性和方向性等特点，共有64个密码子。',
+    topic: '翻译',
+    note: '2026年简答题考过"遗传密码的特点和简并性的生物学意义"。',
+  },
+  {
+    id: 'mol-0053',
+    subject: 'molecular',
+    en: 'Wobble hypothesis',
+    cn: '摆动学说',
+    defCn:
+      '由克里克提出的假说，认为tRNA反密码子中5\'端的第一位碱基与mRNA密码子第三位碱基配对时不够严格，可以发生摆动，从而使一种tRNA能识别多个同义密码子。',
+    topic: '翻译',
+    note: '这是解释密码子简并性的重要机制，常与遗传密码特点一起考。',
+  },
+  {
+    id: 'mol-0054',
+    subject: 'molecular',
+    en: 'Replication fork',
+    cn: '复制叉',
+    defCn:
+      'DNA复制时双链解开形成Y形的区域，由解旋酶、单链结合蛋白、引物酶、DNA聚合酶等多种蛋白协同作用，是DNA进行半不连续复制的场所。',
+    topic: '染色体与DNA',
+    note: '2026年简答题考过"复制叉的结构与其结合的蛋白"。',
+  },
+  {
+    id: 'mol-0055',
+    subject: 'molecular',
+    en: 'Leading strand',
+    cn: '前导链',
+    defCn:
+      'DNA复制中沿着复制叉前进方向、以3\'→5\'方向的母链为模板连续合成的新链，其合成方向为5\'→3\'，与复制叉移动方向一致。',
+    topic: '染色体与DNA',
+    note: '与后随链对比记忆：前导链连续合成，后随链不连续合成并形成冈崎片段。',
+  },
+  {
+    id: 'mol-0056',
+    subject: 'molecular',
+    en: 'Histone',
+    cn: '组蛋白',
+    defCn:
+      '真核生物染色质中与DNA结合的碱性蛋白质，富含赖氨酸和精氨酸，分为H1、H2A、H2B、H3、H4五类，其中H2A、H2B、H3、H4各两分子构成核小体的八聚体核心。',
+    topic: '染色体与DNA',
+    note: '2024年简答题考过组蛋白的类型、修饰类型及生物学意义。',
+  },
+  {
+    id: 'mol-0057',
+    subject: 'molecular',
+    en: 'Repressor',
+    cn: '阻遏蛋白',
+    defCn:
+      '由调节基因编码、能够识别并特异性结合操纵基因，从而阻断RNA聚合酶与启动子结合、抑制结构基因转录的蛋白质。',
+    topic: '转录与转录调控',
+    note: '与辅阻遏物区分：辅阻遏物需与阻遏蛋白结合后才使其具有活性。',
+  },
+  {
+    id: 'mol-0058',
+    subject: 'molecular',
+    en: 'Inducer',
+    cn: '诱导物',
+    defCn:
+      '能与阻遏蛋白结合并改变其构象、使其从操纵基因上脱落，从而解除阻遏、开启结构基因转录的小分子物质，如乳糖操纵子中的异乳糖。',
+    topic: '转录与转录调控',
+    note: '与辅阻遏物作用相反，是乳糖操纵子负控诱导系统的关键。',
+  },
+  {
+    id: 'mol-0059',
+    subject: 'molecular',
+    en: 'Sigma factor',
+    cn: 'σ因子',
+    defCn:
+      '原核生物RNA聚合酶全酶中的一个亚基，能识别启动子的-10区和-35区保守序列，引导RNA聚合酶正确结合到转录起始位点，并在转录起始后脱落。',
+    topic: '转录与转录调控',
+    note: '注意区别：核心酶负责延伸，全酶（核心酶＋σ因子）负责起始。',
+  },
+  {
+    id: 'mol-0060',
+    subject: 'molecular',
+    en: 'Transposon',
+    cn: '转座子',
+    defCn:
+      '基因组中能够从一处移动到另一处、引起遗传重排的可移动DNA序列，由麦克林托克在玉米中发现，分为复制型和非复制型两类，对基因组进化和基因突变具有重要影响。',
+    topic: '基因突变与修复',
+    note: '',
+  },
+  {
+    id: 'mol-0061',
+    subject: 'molecular',
+    en: 'DNA repair',
+    cn: 'DNA修复',
+    defCn:
+      '细胞对DNA损伤进行识别并恢复其正常结构的各种机制的总称，主要包括光复活修复、切除修复、错配修复和重组修复等，是维持基因组稳定性的重要保障。',
+    topic: '基因突变与修复',
+    note: '',
+  },
+  {
+    id: 'mol-0062',
+    subject: 'molecular',
+    en: 'Chromatin remodeling',
+    cn: '染色质重塑',
+    defCn:
+      '在ATP供能的染色质重塑复合体作用下，通过改变核小体的位置、组成或结构，使染色质在疏松与紧密状态之间转换，从而调控基因转录可及性的过程。',
+    topic: '基因表达调控',
+    note: '与组蛋白修饰共同构成基因转录的表观遗传调控层面。',
+  },
+  {
+    id: 'mol-0063',
+    subject: 'molecular',
+    en: 'Plasmid',
+    cn: '质粒',
+    defCn:
+      '细菌细胞内独立于染色体之外、能自主复制的共价闭合环状双链DNA分子，常携带抗生素抗性等基因，是基因工程中最常用的载体。',
+    topic: '研究技术与方法',
+    note: '答"质粒作为载体应具备的条件"是常见延伸考点。',
+  },
+  {
+    id: 'mol-0064',
+    subject: 'molecular',
+    en: 'Transformation',
+    cn: '转化',
+    defCn:
+      '细菌从周围环境中直接摄取游离的DNA片段，并将其整合到自身基因组中从而获得新的遗传性状的过程，是基因工程中把重组质粒导入宿主细胞的关键步骤。',
+    topic: '研究技术与方法',
+    note: '与转导、接合区分：转化靠摄取游离DNA，转导靠噬菌体介导，接合靠细胞直接接触。',
+  },
+  {
+    id: 'mol-0065',
+    subject: 'molecular',
+    en: 'cDNA library',
+    cn: 'cDNA文库',
+    defCn:
+      '以某种细胞或组织中的全部mRNA为模板，经反转录合成cDNA并克隆到载体中构建成的文库，只包含该组织在特定条件下表达的基因，不含内含子。',
+    topic: '研究技术与方法',
+    note: '与基因组文库对比记：cDNA文库反映表达情况、无内含子；基因组文库包含全部基因、有内含子。',
+  },
+  {
+    id: 'mol-0066',
+    subject: 'molecular',
+    en: 'Genomic library',
+    cn: '基因组文库',
+    defCn:
+      '将某种生物的全部基因组DNA用限制性内切酶切割后克隆到载体中构建成的文库，包含该生物的全部遗传信息，既有编码序列也有内含子和非编码序列。',
+    topic: '研究技术与方法',
+    note: '2022年真题实验设计题涉及"如何获得基因的全长cDNA"，需区分两种文库。',
+  },
+  {
+    id: 'mol-0067',
+    subject: 'molecular',
+    en: 'Polymerase chain reaction',
+    cn: '聚合酶链式反应',
+    defCn:
+      '在体外利用DNA聚合酶、一对特异性引物和四种dNTP，通过变性、退火、延伸三个步骤的循环反复进行，使目标DNA片段以指数方式扩增的技术。',
+    topic: '研究技术与方法',
+    note: '缩写 PCR。注意它不在真题名词解释里出现过，但2025年简答题考过其原理与关键组分，极可能改为名词解释。',
+  },
+  {
+    id: 'mol-0068',
+    subject: 'molecular',
+    en: 'Primer',
+    cn: '引物',
+    defCn:
+      '一段短的寡核苷酸链，其3\'-羟基末端为DNA聚合酶提供起始合成位点，在体内由引物酶合成，在PCR中由人工设计合成，决定扩增产物的特异性。',
+    topic: '研究技术与方法',
+    note: '',
+  },
+  {
+    id: 'mol-0069',
+    subject: 'molecular',
+    en: 'Site-directed mutagenesis',
+    cn: '定点突变',
+    defCn:
+      '在已知DNA序列的基础上，通过人工设计引物在特定位点引入碱基的替换、插入或缺失，从而定向改变基因序列并研究其功能的技术。',
+    topic: '研究技术与方法',
+    note: '',
+  },
+  {
+    id: 'mol-0070',
+    subject: 'molecular',
+    en: 'Yeast two-hybrid',
+    cn: '酵母双杂交',
+    defCn:
+      '将待测蛋白分别与转录因子的DNA结合结构域和转录激活结构域融合表达，若两种蛋白相互作用则使结构域靠近并激活报告基因表达，从而检测蛋白质间相互作用的技术。',
+    topic: '研究技术与方法',
+    note: '2022年真题实验设计题专门考过其原理和应用。',
+  },
+  {
+    id: 'mol-0071',
+    subject: 'molecular',
+    en: 'Chromatin immunoprecipitation',
+    cn: '染色质免疫沉淀',
+    defCn:
+      '用甲醛交联细胞内蛋白质与DNA的结合，再超声打断染色质、用特异性抗体沉淀目标蛋白-DNA复合物，最后解交联并对回收的DNA进行鉴定，从而确定蛋白质在基因组上结合位点的技术。',
+    topic: '研究技术与方法',
+    note: '缩写 ChIP。与RIP区分：ChIP沉淀的是与蛋白结合的DNA，RIP沉淀的是RNA。',
+  },
+  {
+    id: 'mol-0072',
+    subject: 'molecular',
+    en: 'Gene knockout',
+    cn: '基因敲除',
+    defCn:
+      '利用同源重组或CRISPR-Cas9等技术使生物体基因组中的特定基因功能失活，从而研究该基因功能的实验方法。',
+    topic: '研究技术与方法',
+    note: '2026年论述题考过"CRISPR-Cas9敲除基因的分子机制"及如何检验敲除成功。',
+  },
+  {
+    id: 'mol-0073',
+    subject: 'molecular',
+    en: '5\' cap',
+    cn: '5\'帽子结构',
+    defCn:
+      '真核生物成熟mRNA 5\'端通过不寻常的5\'-5\'磷酸二酯键连接的一分子7-甲基鸟苷，具有保护mRNA免遭降解、协助核糖体识别并起始翻译以及参与出核运输的作用。',
+    topic: '基因表达调控',
+    note: '2024年简答题考过"真核原始转录产物必须经过哪些加工才能成为成熟mRNA"，帽子是第一个加工事件。',
+  },
+  {
+    id: 'mol-0074',
+    subject: 'molecular',
+    en: 'Poly(A) tail',
+    cn: '多聚腺苷酸尾',
+    defCn:
+      '真核生物前体mRNA在3\'端经切割和多聚腺苷酸化反应加上的由约200个腺苷酸组成的尾，可提高mRNA的稳定性、协助其出核并起始翻译。',
+    topic: '基因表达调控',
+    note: '',
+  },
+  {
+    id: 'mol-0075',
+    subject: 'molecular',
+    en: 'Untranslated region',
+    cn: '非翻译区',
+    defCn:
+      '成熟mRNA分子中位于编码区两侧、不被翻译成蛋白质的序列，5\'端称5\'-UTR、3\'端称3\'-UTR，含有调控翻译效率和mRNA稳定性的顺式作用元件。',
+    topic: '基因表达调控',
+    note: '缩写 UTR。2023年论述题要求画出5\'-UTR、3\'-UTR、CDS等元件的关系图。',
+  },
+  {
+    id: 'mol-0076',
+    subject: 'molecular',
+    en: 'Protein kinase',
+    cn: '蛋白激酶',
+    defCn:
+      '催化ATP的γ-磷酸基团转移到蛋白质特定氨基酸残基（丝氨酸、苏氨酸或酪氨酸）上的酶，是细胞内信号转导和代谢调节中最普遍的共价修饰方式。',
+    topic: '研究技术与方法',
+    note: '2026年论述题以蛋白激酶为核心设计实验，注意其与磷酸酶共同构成可逆磷酸化调节。',
+  },
 ];

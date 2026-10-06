@@ -50,10 +50,12 @@ describe('bundled glossary', () => {
     }
   });
 
-  it('covers all three examined subjects', () => {
+  it('covers all three examined subjects at the expected depth', () => {
+    // Floors, not exact counts: adding terms is expected, losing them is not.
+    const floors: Readonly<Record<Subject, number>> = { cell: 74, molecular: 76, biochem: 54 };
     for (const subject of SUBJECTS) {
       const count = ALL_TERMS.filter((term) => term.subject === subject).length;
-      expect(count, `${subject} has too few entries`).toBeGreaterThanOrEqual(20);
+      expect(count, `${subject} entry count`).toBeGreaterThanOrEqual(floors[subject]);
     }
   });
 
