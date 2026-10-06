@@ -32,6 +32,18 @@ report('review quota', await text('quota-review'));
 
 await page.getByTestId('tab-library').click();
 report('glossary size', await text('library-count'));
+
+const overflow = await page.evaluate(() => {
+  const screen = document.querySelector('.screen');
+  return screen === null ? 0 : screen.scrollHeight - screen.clientHeight;
+});
+report('library scroll', overflow > 0 ? `${overflow}px of scroll` : 'NOT SCROLLABLE');
+
+await page.getByTestId('tab-review').click();
+const isOn = async (testId) =>
+  page.getByTestId(testId).evaluate((el) => el.className.includes('tab--on'));
+report('tabs lit', `今日=${(await isOn('tab-home')) ? 'on' : 'off'} 复习=${(await isOn('tab-review')) ? 'on' : 'off'}`);
+
 await page.getByTestId('tab-home').click();
 
 // Learn one term, then confirm it came back as due for review today.
