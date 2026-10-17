@@ -255,15 +255,19 @@ export function mistakeTerms(
   store: ProgressStore,
   subject: Term['subject'] | 'all',
 ): readonly Term[] {
+  // Look the lapse count up once per term; sorting inside the comparator used
+  // to re-read the store O(n log n) times.
+  const lapsesById = new Map<string, number>();
+  for (const term of terms) {
+    if (!matchesSubject(term, subject)) {
+      continue;
+    }
+    const state = findCardState(store, term.id);
+    if (state !== undefined && state.lapses > 0 && state.box < MASTERED_BOX) {
+      lapsesById.set(term.id, state.lapses);
+    }
+  }
   return terms
-    .filter((term) => matchesSubject(term, subject))
-    .filter((term) => {
-      const state = findCardState(store, term.id);
-      return state !== undefined && state.lapses > 0 && state.box < MASTERED_BOX;
-    })
-    .sort((left, right) => {
-      const leftLapses = findCardState(store, left.id)?.lapses ?? 0;
-      const rightLapses = findCardState(store, right.id)?.lapses ?? 0;
-      return rightLapses - leftLapses;
-    });
+    .filter((term) => lapsesById.has(term.id))
+    .sort((left, right) => (lapsesById.get(right.id) ?? 0) - (lapsesById.get(left.id) ?? 0));
 }

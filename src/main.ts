@@ -10,7 +10,13 @@ import './style.css';
 import { BUNDLED_TERMS } from './data';
 import { assembleGlossary } from './glossary';
 import { parseImport } from './import';
-import { buildDailyPlan, withIntroduced, withReviewed } from './plan';
+import {
+  advanceSession,
+  buildDailyPlan,
+  buildSessionQueue,
+  withIntroduced,
+  withReviewed,
+} from './plan';
 import { registerServiceWorker } from './pwa';
 import {
   applyGrade,
@@ -18,8 +24,6 @@ import {
   daysUntil,
   examIntervalCapDays,
   findCardState,
-  interleaveBySubject,
-  isIntroduced,
 } from './srs';
 import {
   clearAllSavedData,
@@ -33,17 +37,13 @@ import {
   saveProgress,
   saveSettings,
 } from './storage';
-import type { AppActions, AppState, Route, Session, SessionKind } from './app';
-import type { DailyPlan } from './plan';
-import type { Grade, Settings, Subject, Term } from './types';
+import type { AppActions, AppState, Route, SessionKind } from './app';
+import type { Grade, Settings, Subject } from './types';
 import { button, element, withTestId } from './ui/dom';
 import { libraryScreen, settingsScreen, statsScreen, todayScreen } from './ui/screens';
 import { renderSession } from './ui/session';
 
-const QUIZ_FALLBACK_LIMIT = 30;
-const QUIZ_MIN_TERMS = 4;
 const LIST_RENDER_LIMIT = 150;
-const SEED_STRIDE = 7919;
 
 const TAB_ROUTES: readonly Route[] = ['home', 'review', 'library', 'stats'];
 const TAB_LABELS: Readonly<Record<string, string>> = {
@@ -82,6 +82,12 @@ if (rootElement === null) {
 const root: HTMLElement = rootElement;
 
 const errorBanner = withTestId(element('div', 'banner banner--error', ''), 'error-banner');
+errorBanner.setAttribute('role', 'alert');
+const errorText = element('span', 'banner__text', '');
+const errorDismiss = button('✕', 'banner__dismiss', 'dismiss-error', () => {
+  errorBanner.hidden = true;
+});
+errorBanner.append(errorText, errorDismiss);
 errorBanner.hidden = true;
 const screenMount = element('main', 'screen', '');
 const tabBar = element('nav', 'tabbar', '');
@@ -98,7 +104,7 @@ function requireState(): AppState {
 }
 
 function showError(message: string): void {
-  errorBanner.textContent = message;
+  errorText.textContent = message;
   errorBanner.hidden = false;
 }
 
@@ -155,51 +161,6 @@ function restoreFocus(snapshot: FocusSnapshot | null): void {
   ) {
     restored.setSelectionRange(snapshot.selectionStart, snapshot.selectionStart);
   }
-}
-
-// ---------------------------------------------------------------------------
-// Session helpers
-// ---------------------------------------------------------------------------
-
-function advanceSession(state: AppState, session: Session): AppState {
-  const nextCursor = session.cursor + 1;
-  if (nextCursor < session.queue.length) {
-    return {
-      ...state,
-      session: {
-        ...session,
-        cursor: nextCursor,
-        revealed: false,
-        chosenIndex: null,
-        seed: session.seed + SEED_STRIDE,
-      },
-    };
-  }
-  return { ...state, session: null, route: 'home' };
-}
-
-function quizQueue(state: AppState, plan: DailyPlan): readonly Term[] {
-  if (plan.reviewTerms.length >= QUIZ_MIN_TERMS) {
-    return plan.reviewTerms;
-  }
-  const introduced = state.glossary.terms.filter((term) => isIntroduced(state.progress, term.id));
-  if (introduced.length >= QUIZ_MIN_TERMS) {
-    return interleaveBySubject(introduced).slice(0, QUIZ_FALLBACK_LIMIT);
-  }
-  return plan.newTerms.slice(0, QUIZ_FALLBACK_LIMIT);
-}
-
-function buildSessionQueue(state: AppState, plan: DailyPlan, kind: SessionKind): readonly Term[] {
-  if (kind === 'learn') {
-    return plan.newTerms;
-  }
-  if (kind === 'review') {
-    return plan.reviewTerms;
-  }
-  if (kind === 'mistakes') {
-    return plan.mistakes;
-  }
-  return quizQueue(state, plan);
 }
 
 // ---------------------------------------------------------------------------
@@ -363,18 +324,50 @@ const actions: AppActions = {
 // Rendering
 // ---------------------------------------------------------------------------
 
-function renderTabs(state: AppState): void {
-  const nodes = TAB_ROUTES.map((route) => {
-    const active = owningTab(state.route) === route;
-    const label = TAB_LABELS[route] ?? route;
-    return button(label, active ? 'tab tab--on' : 'tab', `tab-${route}`, () => {
-      if (route === 'review') {
-        actions.startSession('review');
-      } else {
-        actions.navigate(route);
-      }
-    });
+/** Static stroke icons, one per tab. Inner markup is a constant, never user data. */
+const TAB_ICONS: Readonly<Record<string, string>> = {
+  home: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10.5h18"/>',
+  review: '<path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/>',
+  library:
+    '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V2.5H6.5A2.5 2.5 0 0 0 4 5z"/><path d="M8 7h8"/>',
+  stats: '<path d="M4 20h16"/><path d="M7 20v-6M12 20V6M17 20v-9"/>',
+};
+
+function svgIcon(inner: string): HTMLElement {
+  const wrap = element('span', 'tab__icon', '');
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('stroke-width', '1.8');
+  svg.setAttribute('stroke-linecap', 'round');
+  svg.setAttribute('stroke-linejoin', 'round');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.innerHTML = inner;
+  wrap.append(svg);
+  return wrap;
+}
+
+function tabButton(route: Route, active: boolean): HTMLButtonElement {
+  const node = withTestId(document.createElement('button'), `tab-${route}`);
+  node.className = active ? 'tab tab--on' : 'tab';
+  node.setAttribute('type', 'button');
+  if (active) {
+    node.setAttribute('aria-current', 'page');
+  }
+  node.append(svgIcon(TAB_ICONS[route] ?? ''), element('span', 'tab__label', TAB_LABELS[route] ?? route));
+  node.addEventListener('click', () => {
+    if (route === 'review') {
+      actions.startSession('review');
+    } else {
+      actions.navigate(route);
+    }
   });
+  return node;
+}
+
+function renderTabs(state: AppState): void {
+  const nodes = TAB_ROUTES.map((route) => tabButton(route, owningTab(state.route) === route));
   tabBar.replaceChildren(...nodes);
 }
 
@@ -392,7 +385,7 @@ function activeScreen(state: AppState, now: number): readonly Node[] {
     return settingsScreen(state, actions);
   }
   const plan = buildDailyPlan(state.glossary.terms, state.progress, state.log, state.settings, now);
-  return todayScreen(state, plan, actions);
+  return todayScreen(state, plan, actions, now);
 }
 
 function render(next: AppState): void {

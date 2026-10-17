@@ -6,7 +6,13 @@
  * is swallowed: an unavailable or corrupt store raises a typed error.
  */
 
+import {
+  DEFAULT_SETTINGS,
+  NEW_PER_DAY_RANGE,
+  REVIEW_PER_DAY_RANGE,
+} from './settings';
 import { parseTerms } from './terms';
+import { isRecord } from './validate';
 import type {
   CardState,
   DailyLog,
@@ -70,10 +76,6 @@ function removeRaw(key: string): void {
   } catch (cause) {
     throw new StorageUnavailableError(key, 'remove', cause);
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function decodeJson(raw: string, key: string): unknown {
@@ -183,19 +185,8 @@ export function saveCustomTerms(terms: readonly Term[]): void {
 // Settings
 // ---------------------------------------------------------------------------
 
-export const DEFAULT_SETTINGS: Settings = {
-  revealMode: 'both',
-  subject: 'all',
-  newPerDay: 20,
-  reviewPerDay: 60,
-  examDate: '',
-};
-
 const REVEAL_MODES: readonly RevealMode[] = ['name', 'definition', 'both'];
 const SUBJECT_SCOPES: readonly (Subject | 'all')[] = ['all', 'cell', 'molecular', 'biochem'];
-
-export const NEW_PER_DAY_RANGE = { min: 5, max: 100 } as const;
-export const REVIEW_PER_DAY_RANGE = { min: 10, max: 500 } as const;
 
 function readBoundedInt(
   decoded: Record<string, unknown>,

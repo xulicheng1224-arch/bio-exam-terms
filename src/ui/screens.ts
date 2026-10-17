@@ -4,6 +4,7 @@
  */
 
 import { IMPORT_TEMPLATE } from '../import';
+import { NEW_PER_DAY_RANGE, REVIEW_PER_DAY_RANGE } from '../settings';
 import { BOX_INTERVALS_DAYS, MASTERED_BOX, daysUntil } from '../srs';
 import { summariseAllSubjects } from '../stats';
 import type { DailyPlan } from '../plan';
@@ -46,14 +47,25 @@ function countdownLine(state: AppState, now: number): HTMLElement {
 
 function quotaRow(label: string, done: number, quota: number, testId: string): HTMLElement {
   const row = element('div', 'quota', '');
+  const fill = element('div', 'quota__fill', '');
+  const ratio = quota > 0 ? Math.min(1, done / quota) : 0;
+  fill.style.width = `${Math.round(ratio * 100)}%`;
+  const bar = element('div', 'quota__bar', '');
+  bar.append(fill);
   row.append(
     element('span', 'quota__label', label),
     withTestId(element('span', 'quota__value', `${done} / ${quota}`), testId),
+    bar,
   );
   return row;
 }
 
-export function todayScreen(state: AppState, plan: DailyPlan, actions: AppActions): readonly Node[] {
+export function todayScreen(
+  state: AppState,
+  plan: DailyPlan,
+  actions: AppActions,
+  now: number,
+): readonly Node[] {
   const nodes: Node[] = [];
 
   const header = element('div', 'screen__header', '');
@@ -61,15 +73,17 @@ export function todayScreen(state: AppState, plan: DailyPlan, actions: AppAction
     element('h1', 'screen__title', '今日'),
     button('⚙', 'icon-button', 'open-settings', () => actions.navigate('settings')),
   );
-  nodes.push(header, countdownLine(state, Date.now()));
+  nodes.push(header, countdownLine(state, now));
 
   const scopes = element('div', 'chips', '');
   for (const scope of SUBJECT_SCOPES) {
-    scopes.append(
-      chipButton(subjectLabel(scope), state.settings.subject === scope, `filter-${scope}`, () =>
-        actions.updateSettings({ ...state.settings, subject: scope }),
-      ),
+    const chip = chipButton(subjectLabel(scope), state.settings.subject === scope, `filter-${scope}`, () =>
+      actions.updateSettings({ ...state.settings, subject: scope }),
     );
+    if (scope !== 'all') {
+      chip.classList.add(`chip--${scope}`);
+    }
+    scopes.append(chip);
   }
   nodes.push(scopes);
 
@@ -228,11 +242,13 @@ export function libraryScreen(
 
   const scopes = element('div', 'chips', '');
   for (const scope of SUBJECT_SCOPES) {
-    scopes.append(
-      chipButton(subjectLabel(scope), state.librarySubject === scope, `library-filter-${scope}`, () =>
-        actions.setLibrarySubject(scope),
-      ),
+    const chip = chipButton(subjectLabel(scope), state.librarySubject === scope, `library-filter-${scope}`, () =>
+      actions.setLibrarySubject(scope),
     );
+    if (scope !== 'all') {
+      chip.classList.add(`chip--${scope}`);
+    }
+    scopes.append(chip);
   }
   nodes.push(scopes);
 
@@ -299,6 +315,7 @@ export function statsScreen(state: AppState, actions: AppActions): readonly Node
 
   for (const entry of stats) {
     const block = element('div', 'stat-block', '');
+    block.classList.add(`stat-block--${entry.subject}`);
     block.append(
       element('h3', 'stat-block__title', subjectLabel(entry.subject)),
       withTestId(
@@ -380,11 +397,21 @@ export function settingsScreen(state: AppState, actions: AppActions): readonly N
   const daily = element('section', 'panel', '');
   daily.append(element('h2', 'panel__title', '每日任务量'));
   daily.append(
-    numberField('每日新词', state.settings.newPerDay, 5, 100, 'setting-new-per-day', (next) =>
-      actions.updateSettings({ ...state.settings, newPerDay: next }),
+    numberField(
+      '每日新词',
+      state.settings.newPerDay,
+      NEW_PER_DAY_RANGE.min,
+      NEW_PER_DAY_RANGE.max,
+      'setting-new-per-day',
+      (next) => actions.updateSettings({ ...state.settings, newPerDay: next }),
     ),
-    numberField('每日复习上限', state.settings.reviewPerDay, 10, 500, 'setting-review-per-day', (next) =>
-      actions.updateSettings({ ...state.settings, reviewPerDay: next }),
+    numberField(
+      '每日复习上限',
+      state.settings.reviewPerDay,
+      REVIEW_PER_DAY_RANGE.min,
+      REVIEW_PER_DAY_RANGE.max,
+      'setting-review-per-day',
+      (next) => actions.updateSettings({ ...state.settings, reviewPerDay: next }),
     ),
     paragraph('hint', '复习到上限就停，剩下的顺延到明天，避免断签后一次堆几百个。'),
   );

@@ -6,6 +6,7 @@
  * rather than trusted through a type assertion.
  */
 
+import { isRecord } from './validate';
 import type { Subject, Term } from './types';
 
 const SUBJECTS: readonly Subject[] = ['cell', 'molecular', 'biochem'];
@@ -23,10 +24,6 @@ export class TermDataError extends Error {
     this.index = index;
     this.field = field;
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function readString(

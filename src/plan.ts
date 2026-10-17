@@ -7,16 +7,19 @@
  * silently growing.
  */
 
+import { QUIZ_SEED_STRIDE } from './quiz';
 import {
   DAY_MS,
   dayKey,
   dueTerms,
   findCardState,
   interleaveBySubject,
+  isIntroduced,
   mistakeTerms,
   startOfDay,
   unintroducedTerms,
 } from './srs';
+import type { AppState, Session, SessionKind } from './app';
 import type { DailyLog, DayCounters, ProgressStore, Settings, Subject, Term } from './types';
 
 const EMPTY_COUNTERS: DayCounters = { introduced: 0, reviewed: 0 };
@@ -85,6 +88,69 @@ export function buildDailyPlan(
     backlogDays: backlogDaysFor(due, progress, now),
     mistakes: mistakeTerms(terms, progress, settings.subject),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Session queues
+// ---------------------------------------------------------------------------
+
+const QUIZ_FALLBACK_LIMIT = 30;
+const QUIZ_MIN_TERMS = 4;
+
+/**
+ * Advances a session to the next card, or ends it when the queue is exhausted.
+ *
+ * The seed strides forward per card so the quiz's correct answer does not land
+ * in the same slot twice in a row.
+ */
+export function advanceSession(state: AppState, session: Session): AppState {
+  const nextCursor = session.cursor + 1;
+  if (nextCursor < session.queue.length) {
+    return {
+      ...state,
+      session: {
+        ...session,
+        cursor: nextCursor,
+        revealed: false,
+        chosenIndex: null,
+        seed: session.seed + QUIZ_SEED_STRIDE,
+      },
+    };
+  }
+  return { ...state, session: null, route: 'home' };
+}
+
+/**
+ * Quiz terms: today's reviews if there are enough, otherwise whatever has been
+ * introduced, falling back to the new-term queue for a first-day learner.
+ */
+function quizQueue(state: AppState, plan: DailyPlan): readonly Term[] {
+  if (plan.reviewTerms.length >= QUIZ_MIN_TERMS) {
+    return plan.reviewTerms;
+  }
+  const introduced = state.glossary.terms.filter((term) => isIntroduced(state.progress, term.id));
+  if (introduced.length >= QUIZ_MIN_TERMS) {
+    return interleaveBySubject(introduced).slice(0, QUIZ_FALLBACK_LIMIT);
+  }
+  return plan.newTerms.slice(0, QUIZ_FALLBACK_LIMIT);
+}
+
+/** Picks the queue for a session kind out of the day's plan. */
+export function buildSessionQueue(
+  state: AppState,
+  plan: DailyPlan,
+  kind: SessionKind,
+): readonly Term[] {
+  if (kind === 'learn') {
+    return plan.newTerms;
+  }
+  if (kind === 'review') {
+    return plan.reviewTerms;
+  }
+  if (kind === 'mistakes') {
+    return plan.mistakes;
+  }
+  return quizQueue(state, plan);
 }
 
 /** Records one newly introduced term against today's quota. */

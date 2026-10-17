@@ -8,7 +8,7 @@
  */
 
 import { answerFaceFor, promptFor } from '../card';
-import { buildChoices } from '../quiz';
+import { QUIZ_SEED_STRIDE, buildChoices } from '../quiz';
 import { isSpeechAvailable, speakEnglish } from '../speech';
 import type { AppActions, AppState, Session, SessionKind } from '../app';
 import type { Term } from '../types';
@@ -38,6 +38,7 @@ function metaLines(term: Term): readonly HTMLElement[] {
 }
 
 function sessionHeader(session: Session, actions: AppActions): HTMLElement {
+  const masthead = element('div', 'session__masthead', '');
   const header = element('div', 'session__header', '');
   header.append(
     element('span', 'session__title', SESSION_TITLES[session.kind]),
@@ -47,7 +48,12 @@ function sessionHeader(session: Session, actions: AppActions): HTMLElement {
     ),
     button('退出', 'link', 'exit-session', () => actions.navigate('home')),
   );
-  return header;
+  const trackFill = element('div', 'session__track-fill', '');
+  trackFill.style.width = `${Math.round(((session.cursor + 1) / Math.max(1, session.queue.length)) * 100)}%`;
+  const track = element('div', 'session__track', '');
+  track.append(trackFill);
+  masthead.append(header, track);
+  return masthead;
 }
 
 function finishedNotice(message: string, actions: AppActions): HTMLElement {
@@ -66,7 +72,7 @@ function finishedNotice(message: string, actions: AppActions): HTMLElement {
 function learnCard(term: Term, actions: AppActions, onError: (message: string) => void): readonly Node[] {
   const card = withTestId(element('article', 'card card--revealed', ''), 'card');
   card.append(
-    element('span', 'card__subject', subjectLabel(term.subject)),
+    element('span', `card__subject card__subject--${term.subject}`, subjectLabel(term.subject)),
     withTestId(element('h2', 'card__prompt', promptFor(term)), 'card-prompt'),
   );
   const speak = speakButton(term, onError);
@@ -101,7 +107,7 @@ function reviewCard(
     'card',
   );
   card.append(
-    element('span', 'card__subject', subjectLabel(term.subject)),
+    element('span', `card__subject card__subject--${term.subject}`, subjectLabel(term.subject)),
     withTestId(element('h2', 'card__prompt', promptFor(term)), 'card-prompt'),
   );
   const speak = speakButton(term, onError);
@@ -120,7 +126,17 @@ function reviewCard(
     card.append(...metaLines(term));
   } else {
     card.append(paragraph('card__hint', '先回想中文名和释义，再点「显示答案」'));
+    // The whole card flips on click; mirror that for keyboard users.
+    card.tabIndex = 0;
+    card.setAttribute('role', 'button');
+    card.setAttribute('aria-label', '显示答案');
     card.addEventListener('click', () => actions.reveal());
+    card.addEventListener('keydown', (event: KeyboardEvent) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        actions.reveal();
+      }
+    });
   }
 
   const controls = element('div', 'controls', '');
@@ -151,12 +167,17 @@ function quizCard(
 ): readonly Node[] {
   // Varying the seed per card keeps the correct answer from landing in the
   // same slot on every question.
-  const choices = buildChoices(term, state.glossary.terms, 4, session.seed + session.cursor * 7919);
+  const choices = buildChoices(
+    term,
+    state.glossary.terms,
+    4,
+    session.seed + session.cursor * QUIZ_SEED_STRIDE,
+  );
   const answered = session.chosenIndex !== null;
 
   const card = withTestId(element('article', 'card', ''), 'card');
   card.append(
-    element('span', 'card__subject', subjectLabel(term.subject)),
+    element('span', `card__subject card__subject--${term.subject}`, subjectLabel(term.subject)),
     withTestId(element('h2', 'card__prompt', promptFor(term)), 'card-prompt'),
     paragraph('card__hint', '选出正确的中文名'),
   );

@@ -53,15 +53,3 @@ export function summariseAllSubjects(
   const subjects: readonly Subject[] = ['cell', 'molecular', 'biochem'];
   return subjects.map((subject) => summariseSubject(terms, progress, subject));
 }
-
-/** Total number of terms graded "again" at least once. */
-export function countLapsed(terms: readonly Term[], progress: ProgressStore): number {
-  let total = 0;
-  for (const term of terms) {
-    const state = findCardState(progress, term.id);
-    if (state !== undefined && state.lapses > 0) {
-      total += 1;
-    }
-  }
-  return total;
-}

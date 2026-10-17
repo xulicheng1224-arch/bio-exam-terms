@@ -6,12 +6,19 @@
  * varies the seed per card so the correct answer is not always in the same slot.
  */
 
-import type { Term } from './types';
+import type { Subject, Term } from './types';
 
 export interface Choice {
   readonly text: string;
   readonly correct: boolean;
 }
+
+/**
+ * Seed stride between consecutive cards in one session. Lives here so both the
+ * state holder (advancing the session) and the quiz renderer (rebuilding the
+ * choices for a card) derive the same per-card seed from one constant.
+ */
+export const QUIZ_SEED_STRIDE = 7919;
 
 const MULTIPLIER = 1_664_525;
 const INCREMENT = 1_013_904_223;
@@ -40,6 +47,33 @@ function shuffled<T>(items: readonly T[], seed: number): readonly T[] {
 }
 
 /**
+ * Distractor pools grouped by subject, memoised per pool identity.
+ *
+ * Building the choices for one card used to re-scan and re-filter the whole
+ * glossary on every render; a quiz re-renders on each answer, so the grouping
+ * is cached on the pool array itself (the glossary is immutable per session).
+ */
+const poolCache = new WeakMap<readonly Term[], ReadonlyMap<Subject, readonly Term[]>>();
+
+function poolForSubject(pool: readonly Term[], subject: Subject): readonly Term[] {
+  let grouped = poolCache.get(pool);
+  if (grouped === undefined) {
+    const buckets = new Map<Subject, Term[]>();
+    for (const candidate of pool) {
+      const bucket = buckets.get(candidate.subject);
+      if (bucket === undefined) {
+        buckets.set(candidate.subject, [candidate]);
+      } else {
+        bucket.push(candidate);
+      }
+    }
+    grouped = buckets;
+    poolCache.set(pool, grouped);
+  }
+  return grouped.get(subject) ?? [];
+}
+
+/**
  * Builds a question: the correct Chinese name plus distractors drawn from the
  * same subject, so the options are plausible rather than obviously wrong.
  *
@@ -53,7 +87,7 @@ export function buildChoices(
   seed: number,
 ): readonly Choice[] {
   const distractors = shuffled(
-    pool.filter((candidate) => candidate.subject === term.subject && candidate.cn !== term.cn),
+    poolForSubject(pool, term.subject).filter((candidate) => candidate.cn !== term.cn),
     seed,
   );
   const picked: Term[] = [];
